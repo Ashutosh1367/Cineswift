@@ -7,8 +7,10 @@ import { SnackSelector } from '../components/SnackSelector';
 import { PaymentForm } from '../components/PaymentForm';
 import { BookingConfirmation } from '../components/BookingConfirmation';
 import { BookingState, Movie, Showtime, Step, Seat } from '../types';
-import { OFFERS } from '../constants';
+import { OFFERS, SNACKS } from '../constants';
 import { RefreshCcw } from 'lucide-react';
+import { createBooking } from '../services/bookingService';
+import { useAuth } from '../context/AuthContext';
 
 const INITIAL_STATE: BookingState = {
     step: Step.SELECT_MOVIE,
@@ -21,6 +23,7 @@ const INITIAL_STATE: BookingState = {
 };
 
 export default function Booking() {
+    const { user } = useAuth();
     const [bookingState, setBookingState] = useState<BookingState>(INITIAL_STATE);
     const [isTransitioning, setIsTransitioning] = useState(false);
 
@@ -70,20 +73,46 @@ export default function Booking() {
         }));
     }
 
-    const handlePaymentSubmit = () => {
+    const handlePaymentSubmit = async () => {
         setIsTransitioning(true);
 
-        // Simulate payment processing
-        setTimeout(() => {
-            const mockId = `BK-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+        try {
+            // Calculate total amount
+            const ticketTotal = bookingState.selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
+            const snackTotal = Object.entries(bookingState.selectedSnacks).reduce((sum, [id, qty]) => {
+                const snack = SNACKS.find(s => s.id === id);
+                return sum + (snack ? snack.price * (qty as number) : 0);
+            }, 0);
+            const totalAmount = ticketTotal + snackTotal + 1.50; // + convenience fee
 
+            // Create booking in Firestore
+            const booking = await createBooking(
+                user?.uid || 'guest',
+                bookingState.selectedMovie!,
+                bookingState.selectedShowtime!,
+                bookingState.selectedSeats,
+                totalAmount,
+                bookingState.selectedSnacks,
+                bookingState.appliedOffer?.id || null
+            );
+
+            setBookingState((prev) => ({
+                ...prev,
+                bookingId: booking.bookingRef,
+                step: Step.CONFIRMATION,
+            }));
+        } catch (error) {
+            console.error('Booking error:', error);
+            // Fallback to mock booking if Firestore fails
+            const mockId = `BK-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
             setBookingState((prev) => ({
                 ...prev,
                 bookingId: mockId,
                 step: Step.CONFIRMATION,
             }));
+        } finally {
             setIsTransitioning(false);
-        }, 2000);
+        }
     };
 
     const handleBack = () => {

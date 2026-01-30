@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import Booking from './pages/Booking';
+import MyBookings from './pages/MyBookings';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -12,6 +13,11 @@ function App() {
       <Route path="/" element={
         <ProtectedRoute>
           <Booking />
+        </ProtectedRoute>
+      } />
+      <Route path="/my-bookings" element={
+        <ProtectedRoute>
+          <MyBookings />
         </ProtectedRoute>
       } />
       <Route path="*" element={<Navigate to="/" replace />} />
